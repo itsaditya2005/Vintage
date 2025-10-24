@@ -1226,7 +1226,7 @@ exports.sendEmail = (to, subject, body, TEMPLATE_NAME, ATTACHMENTS, callback) =>
 const sgMail = require('@sendgrid/mail');
 
 // Replace with your actual API Key from Azure SendGrid
-sgMail.setApiKey("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"); // safer to use .env file
+sgMail.setApiKey(process.env.SENDGRID_API_KEY); // safer to use .env file
 
 function sendEmailCallback(to, subject, html, callback) {
     const msg = {
