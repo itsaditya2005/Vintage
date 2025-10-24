@@ -13,12 +13,12 @@ var viewianaMaster = "view_" + ianaMaster;
 function reqData(req) {
 
     var data = {
-    NAME: req.body.NAME, 
-    SEQUENCE_NO: req.body.SEQUENCE_NO,
-    STATUS: req.body.STATUS ? '1' : '0',
-    SHORT_CODE: req.body.SHORT_CODE,
-    CLIENT_ID: req.body.CLIENT_ID,
-};
+        NAME: req.body.NAME,
+        SEQUENCE_NO: req.body.SEQUENCE_NO,
+        STATUS: req.body.STATUS ? '1' : '0',
+        SHORT_CODE: req.body.SHORT_CODE,
+        CLIENT_ID: req.body.CLIENT_ID,
+    };
 
     return data;
 }
@@ -122,7 +122,7 @@ exports.create = (req, res) => {
     }
     else {
         try {
-            mm.executeQueryData('INSERT INTO ' + ianaMaster + ' SET ?', data, supportKey, (error, results) => {
+            mm.executeQueryData('SELECT SHORT_CODE FROM ' + ianaMaster + ' WHERE SHORT_CODE = ?', [data.SHORT_CODE], supportKey, (error, resultsCheck) => {
                 if (error) {
                     console.log(error);
                     logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
@@ -132,17 +132,35 @@ exports.create = (req, res) => {
                     });
                 }
                 else {
-                    var ACTION_DETAILS = `User ${req.body.authData.data.UserData[0].NAME} has added a new iana code.`;
-                    var logCategory = "iana"
-
-                    let actionLog = {
-                        "SOURCE_ID": results.insertId, "LOG_DATE_TIME": mm.getSystemDate(), "LOG_TEXT": ACTION_DETAILS, "CATEGORY": logCategory, "CLIENT_ID": 1, "USER_ID": req.body.authData.data.UserData[0].USER_ID, "supportKey": 0
+                    if (resultsCheck.length > 0) {
+                        return res.status(200).json({
+                            "code": 300,
+                            "message": "Short code already exists. Please enter different short code."
+                        });
                     }
+                    mm.executeQueryData('INSERT INTO ' + ianaMaster + ' SET ?', data, supportKey, (error, results) => {
+                        if (error) {
+                            console.log(error);
+                            logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
+                            res.status(400).json({
+                                "code": 400,
+                                "message": "Failed to save ianaMaster information..."
+                            });
+                        }
+                        else {
+                            var ACTION_DETAILS = `User ${req.body.authData.data.UserData[0].NAME} has added a new iana code.`;
+                            var logCategory = "iana"
 
-                    dbm.saveLog(actionLog, systemLog)
-                    res.status(200).json({
-                        "code": 200,
-                        "message": "ianaMaster information saved successfully...",
+                            let actionLog = {
+                                "SOURCE_ID": results.insertId, "LOG_DATE_TIME": mm.getSystemDate(), "LOG_TEXT": ACTION_DETAILS, "CATEGORY": logCategory, "CLIENT_ID": 1, "USER_ID": req.body.authData.data.UserData[0].USER_ID, "supportKey": 0
+                            }
+
+                            dbm.saveLog(actionLog, systemLog)
+                            res.status(200).json({
+                                "code": 200,
+                                "message": "ianaMaster information saved successfully...",
+                            });
+                        }
                     });
                 }
             });
@@ -168,7 +186,7 @@ exports.update = (req, res) => {
     var recordData = [];
     Object.keys(data).forEach(key => {
         setData += `${key} = ?, `;
-        recordData.push(data[key] !== undefined ? data[key] : null); // Push null if the value is undefined
+        recordData.push(data[key] !== undefined ? data[key] : null); 
     });
 
     if (!errors.isEmpty()) {
@@ -180,27 +198,45 @@ exports.update = (req, res) => {
     }
     else {
         try {
-            mm.executeQueryData(`UPDATE ` + ianaMaster + ` SET ${setData} CREATED_MODIFIED_DATE = '${systemDate}' where ID = ${criteria.ID} `, recordData, supportKey, (error, results) => {
+            mm.executeQueryData('SELECT SHORT_CODE FROM ' + ianaMaster + ' WHERE SHORT_CODE = ? AND ID != ?', [data.SHORT_CODE, criteria.ID], supportKey, (error, resultsCheck) => {
                 if (error) {
-                    logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
                     console.log(error);
+                    logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
                     res.status(400).json({
                         "code": 400,
-                        "message": "Failed to update ianaMaster information."
+                        "message": "Failed to save ianaMaster information..."
                     });
                 }
                 else {
-                    var ACTION_DETAILS = `User ${req.body.authData.data.UserData[0].NAME} has updated details of iana code.`;
-                    var logCategory = "iana"
-
-                    let actionLog = {
-                        "SOURCE_ID": criteria.ID, "LOG_DATE_TIME": mm.getSystemDate(), "LOG_TEXT": ACTION_DETAILS, "CATEGORY": logCategory, "CLIENT_ID": 1, "USER_ID": req.body.authData.data.UserData[0].USER_ID, "supportKey": 0
+                    if (resultsCheck.length > 0) {
+                        return res.status(200).json({
+                            "code": 300,
+                            "message": "Short code already exists. Please enter different short code."
+                        });
                     }
+                    mm.executeQueryData(`UPDATE ` + ianaMaster + ` SET ${setData} CREATED_MODIFIED_DATE = '${systemDate}' where ID = ${criteria.ID} `, recordData, supportKey, (error, results) => {
+                        if (error) {
+                            logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
+                            console.log(error);
+                            res.status(400).json({
+                                "code": 400,
+                                "message": "Failed to update ianaMaster information."
+                            });
+                        }
+                        else {
+                            var ACTION_DETAILS = `User ${req.body.authData.data.UserData[0].NAME} has updated details of iana code.`;
+                            var logCategory = "iana"
 
-                    dbm.saveLog(actionLog, systemLog)
-                    res.status(200).json({
-                        "code": 200,
-                        "message": "ianaMaster information updated successfully...",
+                            let actionLog = {
+                                "SOURCE_ID": criteria.ID, "LOG_DATE_TIME": mm.getSystemDate(), "LOG_TEXT": ACTION_DETAILS, "CATEGORY": logCategory, "CLIENT_ID": 1, "USER_ID": req.body.authData.data.UserData[0].USER_ID, "supportKey": 0
+                            }
+
+                            dbm.saveLog(actionLog, systemLog)
+                            res.status(200).json({
+                                "code": 200,
+                                "message": "ianaMaster information updated successfully...",
+                            });
+                        }
                     });
                 }
             });
