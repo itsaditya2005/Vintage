@@ -109,7 +109,6 @@ exports.get = (req, res) => {
 exports.create = (req, res) => {
 
     var data = reqData(req);
-    console.log(JSON.stringify(req.body));
     const errors = validationResult(req);
     var supportKey = req.headers['supportkey'];
 
