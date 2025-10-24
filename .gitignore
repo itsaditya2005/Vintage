@@ -1,0 +1,21 @@
+node_modules
+*.zip
+*.rar
+*.nb3
+*.png
+*.jpeg
+*.jpg
+*.txt
+Logs
+logger
+*.env
+.env
+# *.pdf
+*.mp4
+*.json
+*.html
+*.jfif
+*.rtf
+*.chm
+*.webp
+changes
