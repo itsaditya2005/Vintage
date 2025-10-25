@@ -3682,3 +3682,74 @@ exports.verifyOTPpassword = (req, res) => {
         console.log(error);
     }
 };
+
+
+exports.unMappedBackOffices = (req, res) => {
+    var supportKey = req.headers['supportkey'];
+    var pageIndex = req.body.pageIndex ? req.body.pageIndex : '';
+    var pageSize = req.body.pageSize ? req.body.pageSize : '';
+    let sortKey = req.body.sortKey ? req.body.sortKey : 'ID';
+    let sortValue = req.body.sortValue ? req.body.sortValue : 'DESC';
+    let filter = req.body.filter ? req.body.filter : '';
+    var CUSTOMER_ID = req.body.CUSTOMER_ID;
+    var IS_FILTER_WRONG = mm.sanitizeFilter(filter);
+    var start = 0;
+    var end = 0;
+    let criteria = '';
+    let countCriteria = filter;
+    if (pageIndex != '' && pageSize != '') {
+        start = (pageIndex - 1) * pageSize;
+        end = pageSize;
+    }
+    if (pageIndex === '' && pageSize === '')
+        criteria = filter + " order by " + sortKey + " " + sortValue;
+    else
+        criteria = filter + " order by " + sortKey + " " + sortValue + " LIMIT " + start + "," + end;
+    try {
+        if (IS_FILTER_WRONG == "0" && CUSTOMER_ID != '') {
+            mm.executeQuery(`select count(*) as cnt from backoffice_team_master p where 1 AND USER_ID NOT IN (select BACKOFFICE_ID from customer_backoffice_mapping where CUSTOMER_ID = ${CUSTOMER_ID})` + countCriteria, supportKey, (error, results1) => {
+                if (error) {
+                    console.log(error);
+                    logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
+                    res.status(400).send({
+                        "code": 400,
+                        "message": "Failed to get mapping count.",
+                    });
+                }
+                else {
+                    mm.executeQuery(`select * from backoffice_team_master p where 1 AND USER_ID NOT IN (select BACKOFFICE_ID from customer_backoffice_mapping where CUSTOMER_ID = ${CUSTOMER_ID})` + criteria, supportKey, (error, results) => {
+                        if (error) {
+                            console.log(error);
+                            logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
+                            res.status(400).send({
+                                "code": 400,
+                                "message": "Failed to get Skill information."
+                            });
+                        }
+                        else {
+                            res.status(200).send({
+                                "code": 200,
+                                "message": "success",
+                                "count": results1[0].cnt,
+                                "data": results
+                            });
+                        }
+                    });
+                }
+            });
+        }
+        else {
+            res.status(400).send({
+                code: 400,
+                message: "Invalid filter parameter or service id."
+            })
+        }
+    } catch (error) {
+        logger.error(supportKey + ' ' + req.method + " " + req.url + ' ' + JSON.stringify(error), applicationkey);
+        console.log(error);
+        res.status(500).send({
+            "code": 500,
+            "message": "Something went wrong."
+        });
+    }
+}

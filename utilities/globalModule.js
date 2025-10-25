@@ -1042,7 +1042,7 @@ exports.sendNotificationToDepartment = (SENDER_ID, DEPARTMENT_ID, TITLE, DESCRIP
     }
 }
 
-exports.sendDynamicEmail = (templateID, referenceId, supportKey) => {
+exports.sendDynamicEmailORIGINAL = (templateID, referenceId, supportKey) => {
 
     console.log("\n\n\n\n\n\n\n*templateID  in dynamic email", templateID);
     this.executeQueryData(`SELECT TEMPLATE_NAME, TEMPLATE_CATEGORY_ID, SUBJECT, BODY, BODY_VALUES, ATTACHMENTS FROM email_template_master  WHERE TEMPLATE_CATEGORY_ID = ?`, [templateID], supportKey, (error, template) => {
@@ -1123,9 +1123,9 @@ exports.sendDynamicEmail = (templateID, referenceId, supportKey) => {
                             console.log("Recipient email not found!");
                             return;
                         }
-                        // console.log("\n\nrecipientEmail ", recipientEmail);
-                        // console.log("template[0].SUBJECT ", template[0].SUBJECT);
-                        // console.log("BODY ", BODY);
+                        console.log("\n\nrecipientEmail ", recipientEmail);
+                        console.log("template[0].SUBJECT ", template[0].SUBJECT);
+                        console.log("BODY ", BODY);
 
                         this.sendEmail(recipientEmail, template[0].SUBJECT, BODY, template[0].TEMPLATE_NAME, template[0].ATTACHMENTS, (error, results) => {
                             if (error) {
@@ -1144,6 +1144,145 @@ exports.sendDynamicEmail = (templateID, referenceId, supportKey) => {
     }
     );
 };
+
+exports.sendDynamicEmail = (templateID, referenceId, supportKey) => {
+
+    console.log("\n\n*** sendDynamicEmail initiated for template:", templateID);
+
+    // 1️⃣ Fetch the email template
+    this.executeQueryData(`
+        SELECT TEMPLATE_NAME, TEMPLATE_CATEGORY_ID, SUBJECT, SUBJECT_VALUES, BODY, BODY_VALUES, ATTACHMENTS
+        FROM email_template_master 
+        WHERE TEMPLATE_CATEGORY_ID = ?`,
+        [templateID],
+        supportKey,
+        (error, template) => {
+            if (error) {
+                console.error("Error fetching template:", error);
+                return;
+            }
+            if (!template.length) {
+                console.error("Template not found!");
+                return;
+            }
+
+            let { TEMPLATE_CATEGORY_ID, SUBJECT, SUBJECT_VALUES, BODY, BODY_VALUES, ATTACHMENTS } = template[0];
+            BODY_VALUES = JSON.parse(BODY_VALUES || "[]");
+            SUBJECT_VALUES = JSON.parse(SUBJECT_VALUES || "[]");
+
+            // 2️⃣ Fetch placeholders from master
+            this.executeQueryData(`
+                SELECT TABLE_COLUMN, TABLE_NAME, PLACEHOLDER_TYPE 
+                FROM placeholder_master 
+                WHERE TEMPLATE_CATEGORY_ID = ?`,
+                [TEMPLATE_CATEGORY_ID],
+                supportKey,
+                (error, mappings) => {
+
+                    if (error) {
+                        console.log("Error fetching mappings:", error);
+                        return;
+                    }
+                    if (!mappings.length) {
+                        console.log("No mappings found for template category:", TEMPLATE_CATEGORY_ID);
+                        return;
+                    }
+
+                    // --- Organize columns per table ---
+                    let tableQueries = {};
+                    for (let { TABLE_COLUMN, TABLE_NAME } of mappings) {
+                        if (!tableQueries[TABLE_NAME]) tableQueries[TABLE_NAME] = [];
+                        tableQueries[TABLE_NAME].push(TABLE_COLUMN);
+                    }
+
+                    let values = {};
+                    let queriesExecuted = 0;
+                    let totalQueries = Object.keys(tableQueries).length;
+                    let recipientEmail = "";
+
+                    // 3️⃣ Fetch data from all required tables
+                    for (let table in tableQueries) {
+                        this.executeQueryData(
+                            `SELECT ${tableQueries[table].join(", ")} FROM ${table} WHERE ID = ?`,
+                            [referenceId],
+                            supportKey,
+                            (error, data) => {
+                                if (error) {
+                                    console.log("Error fetching data from table:", table, error);
+                                    return;
+                                }
+
+                                if (data.length) {
+                                    Object.assign(values, data[0]);
+
+                                    // Assume EMAIL_ID is always part of one table
+                                    if (data[0].EMAIL_ID && !recipientEmail)
+                                        recipientEmail = data[0].EMAIL_ID;
+                                }
+
+                                queriesExecuted++;
+                                if (queriesExecuted === totalQueries) {
+                                    // All queries completed, now build email
+                                    console.log("All data collected:", values);
+
+                                    // --- BODY Placeholder Replacement ---
+                                    BODY_VALUES.forEach((key, index) => {
+                                        const regex = new RegExp(`{{\\s*${index + 1}\\s*}}`, 'g');
+                                        BODY = BODY.replace(regex, `{{${key}}}`);
+                                    });
+
+                                    Object.keys(values).forEach((key) => {
+                                        const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'gi');
+                                        BODY = BODY.replace(regex, values[key] || "");
+                                    });
+
+                                    // --- SUBJECT Placeholder Replacement ---
+                                    SUBJECT_VALUES.forEach((key, index) => {
+                                        const regex = new RegExp(`{{\\s*${index + 1}\\s*}}`, 'g');
+                                        SUBJECT = SUBJECT.replace(regex, `{{${key}}}`);
+                                    });
+
+                                    // Replace placeholders from values if marked SUBJECT or BOTH
+                                    mappings.forEach((m) => {
+                                        if (['SUBJECT', 'Both'].includes(m.PLACEHOLDER_TYPE)) {
+                                            const regex = new RegExp(`{{\\s*${m.TABLE_COLUMN}\\s*}}`, 'gi');
+                                            SUBJECT = SUBJECT.replace(regex, values[m.TABLE_COLUMN] || "");
+                                        }
+                                    });
+
+                                    // --- Validation and Send ---
+                                    if (!recipientEmail) {
+                                        console.log("Recipient email not found!");
+                                        return;
+                                    }
+
+                                    console.log("Final Email Subject:", SUBJECT);
+                                    console.log("Final Email Body:", BODY);
+
+                                    this.sendEmail(
+                                        recipientEmail,
+                                        SUBJECT,
+                                        BODY,
+                                        template[0].TEMPLATE_NAME,
+                                        ATTACHMENTS,
+                                        (error, results) => {
+                                            if (error) {
+                                                console.error('❌ Failed to send email:', error);
+                                            } else {
+                                                console.log('✅ Email sent successfully to:', recipientEmail);
+                                            }
+                                        }
+                                    );
+                                }
+                            }
+                        );
+                    }
+                }
+            );
+        }
+    );
+};
+
 
 
 exports.sendNotificationToWManager = (TITLE, DESCRIPTION, ATTACHMENT, MEDIA_TYPE, data3, data4, CLOUD_ID, W_CLOUD_ID) => {

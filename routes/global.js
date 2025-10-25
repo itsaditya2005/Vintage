@@ -121,6 +121,7 @@ router
   .use('/api/backofficeTerritoryMapping', require('./Masters/backofficeTerritoryMapping'))
   .use('/api/serviceSkillMapping', require('./Masters/serviceSkillMapping'))
   .use('/api/customerTechnicianMapping', require('./Masters/customerTechnicianMapping'))
+  .use('/api/customerBackofficeMapping', require('./Masters/customerBackofficeMapping.js'))
   .use('/api/technicianPincodeMapping', require('./Masters/technicianPincodeMapping'))
   .use('/api/technicianSkillMapping', require('./Masters/technicianSkillMapping'))
   .use('/api/technicianServiceCostMapping', require('./Masters/technicianServiceCostMapping'))

@@ -2,6 +2,7 @@
 const router = express.Router();
 const customerService = require('../../services/Masters/customer');
 const customerTechnicianMapping = require('../../services/Masters/customerTechnicianMapping');
+const customerBackofficeMapping = require('../../services/Masters/customerBackofficeMapping');
 const customerEmailMaster = require('../../services/Masters/customerEmailMaster');
 
 
@@ -19,6 +20,9 @@ router
     .post('/unMapTechnicians', customerTechnicianMapping.unMapTechnicians)
     .post('/deleteProfile', customerService.deleteProfile)
     .post('/activateProfile', customerService.activateProfile)
+    .post('/unMappedBackOffices', customerService.unMappedBackOffices)
+    .post('/mapBackOffices', customerBackofficeMapping.mapBackOffice)
+    .post('/unMapBackOffices', customerBackofficeMapping.unMapBackOffice)
 
 
 

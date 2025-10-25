@@ -23,7 +23,8 @@ function reqData(req) {
         LANGUAGE_CODE: req.body.LANGUAGE_CODE,
         TEMPLATE_CATEGORY_ID: req.body.TEMPLATE_CATEGORY_ID,
         BODY_VALUES: req.body.BODY_VALUES,
-        DESCRIPTION: req.body.DESCRIPTION
+        DESCRIPTION: req.body.DESCRIPTION,
+        SUBJECT_VALUES: req.body.SUBJECT_VALUES,
     }
     return data;
 }

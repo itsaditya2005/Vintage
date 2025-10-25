@@ -16,6 +16,7 @@ function reqData(req) {
         TEMPLATE_CATEGORY_ID: req.body.TEMPLATE_CATEGORY_ID,
         DESCRIPTION: req.body.DESCRIPTION,
         IS_ACTIVE: req.body.IS_ACTIVE ? '1' : '0',
+        PLACEHOLDER_TYPE: req.body.PLACEHOLDER_TYPE,
 
         CLIENT_ID: req.body.CLIENT_ID
 
